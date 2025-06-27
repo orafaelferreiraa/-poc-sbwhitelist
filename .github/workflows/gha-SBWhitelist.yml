@@ -30,7 +30,7 @@ jobs:
     # storage account name + key vão vir dos seus Secrets do GitHub
     env:
       AZURE_STORAGE_ACCOUNT: ${{ secrets.STO_SB_WHITELIST }}
-      AZURE_STORAGE_KEY:     ${{ secrets.STO_SB_WHITELIST_KEY }}
+      #AZURE_STORAGE_KEY:     ${{ secrets.STO_SB_WHITELIST_KEY }}
 
     steps:
       - name: Checkout code
