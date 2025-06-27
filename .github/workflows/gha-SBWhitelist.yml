@@ -50,6 +50,21 @@ jobs:
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
 
+      - name: Debug Azure Identity
+        run: |
+          echo ">>> Current account:"
+          az account show --query "{name:name, user:user}" -o table
+
+      - name: Debug Queue Roles
+        run: |
+          SPN_ID=$(az account show --query "user.name" -o tsv)
+          echo ">>> Checking roles for $SPN_ID on storage account ${{ secrets.STO_SB_WHITELIST }}"
+          az role assignment list \
+            --assignee $SPN_ID \
+            --scope /subscriptions/${{ github.event.inputs.subscriptionId }}/resourceGroups/${{ github.event.inputs.resourceGroup }}/providers/Microsoft.Storage/storageAccounts/${{ secrets.STO_SB_WHITELIST }} \
+            -o table
+
+
       - name: Queue IP + metadata
         run: |
           # garante que a fila existe (idempotente), usando credênciais do SP
