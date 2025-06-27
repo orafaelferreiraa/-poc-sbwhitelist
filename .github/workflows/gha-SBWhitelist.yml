@@ -52,11 +52,13 @@ jobs:
 
       - name: Queue IP + metadata
         run: |
-          # garante que a fila existe (idempotente)
-          az storage queue create -n sb-whitelist --auth-mode key
+          # garante que a fila existe (idempotente), usando credênciais do SP
+          az storage queue create -n sb-whitelist --auth-mode login
+
           # monta payload pipe-delimited: subId|rg|namespace|ip
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}"
+
           az storage message put \
             -q sb-whitelist \
             --content "$PAYLOAD" \
-            --auth-mode key
+            --auth-mode login
