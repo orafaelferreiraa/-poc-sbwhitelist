@@ -1,0 +1,62 @@
+name: Add IP to SB Whitelist
+
+on:
+  workflow_dispatch:
+    inputs:
+      ip:
+        description: 'IP to allow (e.g. 203.0.113.4)'
+        required: true
+      subscriptionId:
+        description: 'Azure Subscription ID'
+        required: true
+      resourceGroup:
+        description: 'Resource Group of your Service Bus'
+        required: true
+      serviceBusName:
+        description: 'Service Bus namespace'
+        required: true
+
+permissions:
+  actions: read
+  checks: write
+  contents: read
+  id-token: write
+  pull-requests: read
+  statuses: read
+
+jobs:
+  add-ip:
+    runs-on: ubuntu-latest
+    # storage account name + key vão vir dos seus Secrets do GitHub
+    env:
+      AZURE_STORAGE_ACCOUNT: ${{ secrets.STO_SB_WHITELIST }}
+      AZURE_STORAGE_KEY:     ${{ secrets.STO_SB_WHITELIST_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id:     ${{ secrets.CLIENTID }}
+          tenant-id:     ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ github.event.inputs.subscriptionId }}
+
+      - name: Allow IP on Service Bus
+        run: |
+          az servicebus namespace network-rule-set ip-rule add \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
+
+      - name: Queue IP + metadata
+        run: |
+          # garante que a fila existe (idempotente)
+          az storage queue create -n sb-whitelist --auth-mode key
+          # monta payload pipe-delimited: subId|rg|namespace|ip
+          PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}"
+          az storage message put \
+            -q sb-whitelist \
+            --content "$PAYLOAD" \
+            --auth-mode key
