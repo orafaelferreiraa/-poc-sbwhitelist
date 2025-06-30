@@ -32,39 +32,46 @@ jobs:
 
       - name: Process all queued IPs (with debug)
         run: |
+          # Loop until the queue is empty
           while true; do
-            # 1) pega next messageId
+            # 1) Fetch the next messageId; if none, exit loop
             MSG_ID=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
               --queue-name sb-whitelist \
               --num-messages 1 \
-              --query '[0].messageId' -o tsv)
-            [ -z "$MSG_ID" ] && break
+              --query '[0].messageId' \
+              -o tsv)
+            if [ -z "$MSG_ID" ]; then
+              echo "✅ No more messages, exiting."
+              break
+            fi
 
-            # 2) pega popReceipt e texto
+            # 2) Fetch its popReceipt and messageText
             POP=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
               --queue-name sb-whitelist \
               --num-messages 1 \
-              --query '[0].popReceipt' -o tsv)
+              --query '[0].popReceipt' \
+              -o tsv)
             PAYLOAD=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
               --queue-name sb-whitelist \
               --num-messages 1 \
-              --query '[0].messageText' -o tsv)
+              --query '[0].messageText' \
+              -o tsv)
 
-            # 3) split payload em variáveis
+            # 3) Split payload "subscriptionId|resourceGroup|namespace|ip"
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
             echo
-            echo "===== DEBUG BEFORE REMOVE ====="
-            echo "SUB_ID=$SUB_ID"
-            echo "RG    =$RG"
-            echo "NS    =$NS"
-            echo "IP    =$IP"
+            echo "----- DEBUG BEFORE REMOVE -----"
+            echo "SUB_ID:      $SUB_ID"
+            echo "ResourceGrp: $RG"
+            echo "Namespace:   $NS"
+            echo "IP:          $IP"
             echo "Current ipRules:"
             az servicebus namespace network-rule-set show \
               --resource-group "$RG" \
@@ -72,7 +79,7 @@ jobs:
               --query ipRules \
               -o table
 
-            # 4) remove o IP *sem* mascarar erros
+            # 4) Remove the IP rule (no silent-fail)
             echo "→ Removing $IP …"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
@@ -81,14 +88,14 @@ jobs:
               --ip-rule ip-address="$IP"
 
             echo
-            echo "===== DEBUG AFTER REMOVE ====="
+            echo "----- DEBUG AFTER REMOVE -----"
             az servicebus namespace network-rule-set show \
               --resource-group "$RG" \
               --namespace-name "$NS" \
               --query ipRules \
               -o table
 
-            # 5) deleta a mensagem da fila
+            # 5) Delete that exact message from the queue
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
@@ -96,4 +103,3 @@ jobs:
               --message-id "$MSG_ID" \
               --pop-receipt "$POP"
           done
-
