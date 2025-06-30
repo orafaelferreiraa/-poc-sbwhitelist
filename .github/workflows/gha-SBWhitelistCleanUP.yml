@@ -32,7 +32,9 @@ jobs:
 
       - name: Process all queued IPs
         run: |
+          # loop until the queue is empty
           while true; do
+            # fetch one message (invisible for 30s), returning messageId, popReceipt, and messageText
             entry=$(az storage message get \
                       --account-name $AZURE_STORAGE_ACCOUNT \
                       --auth-mode login \
@@ -41,12 +43,25 @@ jobs:
                       --num-messages 1 \
                       --query '[0].[messageId,popReceipt,messageText]' \
                       -o tsv 2>/dev/null)
-            [ -z "$entry" ] && break
 
-            read MSG_ID POP PAYLOAD <<< "$entry"
-            IFS='|' read SUB_ID RG NS IP <<< "$PAYLOAD"
+            # if no entry, exit loop
+            if [ -z "$entry" ]; then
+              echo "✅ no more messages, exiting."
+              break
+            fi
 
-            echo "→ Removing $IP from SB $NS (RG: $RG / Sub: $SUB_ID)…"
+            # show raw entry for debugging
+            echo "DEBUG entry: '$entry'"
+
+            # split TSV into three variables
+            IFS=$'\t' read -r MSG_ID POP PAYLOAD <<< "$entry"
+            echo "DEBUG MSG_ID=$MSG_ID POP=$POP PAYLOAD=$PAYLOAD"
+
+            # split payload (subscriptionId|rg|namespace|ip) on pipe
+            IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
+            echo "DEBUG SUB_ID=$SUB_ID RG=$RG NS=$NS IP=$IP"
+
+            echo "→ Removing $IP from Service Bus $NS (RG: $RG / Sub: $SUB_ID)…"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
               --resource-group "$RG" \
