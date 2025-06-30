@@ -30,9 +30,9 @@ jobs:
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
 
-      - name: Process all queued IPs (fixed)
+      - name: Process all queued IPs (final fix)
         run: |
-          # optional: peek
+          # Optional peek to inspect messages
           az storage message peek \
             --account-name $AZURE_STORAGE_ACCOUNT \
             --queue-name sb-whitelist \
@@ -52,17 +52,18 @@ jobs:
             [ "$MSG_JSON" = "null" ] && { echo "✅ queue empty, exiting."; break; }
 
             MSG_ID=$(echo "$MSG_JSON" | jq -r .messageId)
-            POP=$(echo "$MSG_JSON"    | jq -r .popReceipt)    # <-- correção
-            PAYLOAD=$(echo "$MSG_JSON"| jq -r .messageText)
+            POP=$(echo "$MSG_JSON"     | jq -r .popReceipt)   # 🚀 Correct!
+            PAYLOAD=$(echo "$MSG_JSON" | jq -r .messageText)
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
-            echo "→ Removing $IP from $NS (RG=$RG / Sub=$SUB_ID)…"
+            echo "→ Removing $IP from Service Bus '$NS' (RG=$RG / Sub=$SUB_ID)…"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
               --resource-group "$RG" \
               --namespace-name "$NS" \
               --ip-rule ip-address="$IP"
 
+            echo "→ Deleting message $MSG_ID (popReceipt present?)"
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --queue-name sb-whitelist \
