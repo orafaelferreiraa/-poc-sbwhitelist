@@ -33,12 +33,16 @@ jobs:
       - name: Process all queued IPs (final fix)
         run: |
           # Optional peek to inspect messages
+          echo "🔍 Checking queue status..."
           az storage message peek \
             --account-name $AZURE_STORAGE_ACCOUNT \
             --queue-name sb-whitelist \
             --num-messages 5 \
             --auth-mode login \
             -o table
+
+          PROCESSED_COUNT=0
+          ERROR_COUNT=0
 
           while true; do
             MSG_JSON=$(az storage message get \
@@ -49,21 +53,75 @@ jobs:
               --auth-mode login \
               -o json --query '[0]')
 
-            [ "$MSG_JSON" = "null" ] && { echo "✅ queue empty, exiting."; break; }
+            [ "$MSG_JSON" = "null" ] && { 
+              echo "✅ Queue empty, exiting. Processed: $PROCESSED_COUNT messages, Errors: $ERROR_COUNT"; 
+              break; 
+            }
 
             MSG_ID=$(echo "$MSG_JSON" | jq -r .messageId)
-            POP=$(echo "$MSG_JSON"     | jq -r .popReceipt)   # 🚀 Correct!
+            POP=$(echo "$MSG_JSON" | jq -r .popReceipt)
             PAYLOAD=$(echo "$MSG_JSON" | jq -r .messageText)
+            
+            echo "📨 Processing message: $MSG_ID"
+            echo "📋 Raw payload: $PAYLOAD"
+            
+            # Validar se o payload não está mascarado ou corrompido
+            if [[ "$PAYLOAD" == *"***"* ]] || [[ -z "$PAYLOAD" ]] || [[ "$PAYLOAD" == "null" ]]; then
+              echo "⚠️  Payload mascarado ou inválido detectado. Removendo mensagem da fila."
+              az storage message delete \
+                --account-name $AZURE_STORAGE_ACCOUNT \
+                --queue-name sb-whitelist \
+                --id "$MSG_ID" \
+                --pop-receipt "$POP" \
+                --auth-mode login
+              ((ERROR_COUNT++))
+              continue
+            fi
+
+            # Parse do payload
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
+            
+            # Validar campos obrigatórios
+            if [[ -z "$SUB_ID" ]] || [[ -z "$RG" ]] || [[ -z "$NS" ]] || [[ -z "$IP" ]] || \
+               [[ "$SUB_ID" == "null" ]] || [[ "$RG" == "null" ]] || [[ "$NS" == "null" ]] || [[ "$IP" == "null" ]]; then
+              echo "❌ Campos obrigatórios faltando ou inválidos:"
+              echo "   SUB_ID: '$SUB_ID'"
+              echo "   RG: '$RG'"
+              echo "   NS: '$NS'"
+              echo "   IP: '$IP'"
+              echo "   Removendo mensagem inválida da fila."
+              
+              az storage message delete \
+                --account-name $AZURE_STORAGE_ACCOUNT \
+                --queue-name sb-whitelist \
+                --id "$MSG_ID" \
+                --pop-receipt "$POP" \
+                --auth-mode login
+              ((ERROR_COUNT++))
+              continue
+            fi
 
-            echo "→ Removing $IP from Service Bus '$NS' (RG=$RG / Sub=$SUB_ID)…"
-            az account set -s "$SUB_ID"
-            az servicebus namespace network-rule-set ip-rule remove \
-              --resource-group "$RG" \
-              --namespace-name "$NS" \
-              --ip-rule ip-address="$IP"
+            echo "🎯 Removing $IP from Service Bus '$NS' (RG=$RG / Sub=$SUB_ID)..."
+            
+            # Tentar processar a remoção
+            if az account set -s "$SUB_ID" 2>/dev/null; then
+              if az servicebus namespace network-rule-set ip-rule remove \
+                --resource-group "$RG" \
+                --namespace-name "$NS" \
+                --ip-rule ip-address="$IP" 2>/dev/null; then
+                echo "✅ IP $IP removido com sucesso"
+                ((PROCESSED_COUNT++))
+              else
+                echo "⚠️  Falha ao remover IP (pode já ter sido removido ou não existir)"
+                ((PROCESSED_COUNT++))
+              fi
+            else
+              echo "❌ Falha ao acessar subscription $SUB_ID"
+              ((ERROR_COUNT++))
+            fi
 
-            echo "→ Deleting message $MSG_ID (popReceipt present?)"
+            # Sempre remover a mensagem da fila após tentar processar
+            echo "🗑️  Deleting message $MSG_ID..."
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --queue-name sb-whitelist \
@@ -71,3 +129,13 @@ jobs:
               --pop-receipt "$POP" \
               --auth-mode login
           done
+
+          echo "📊 Summary:"
+          echo "   ✅ Successfully processed: $PROCESSED_COUNT"
+          echo "   ❌ Errors/Invalid messages: $ERROR_COUNT"
+          
+          # Se houver muitos erros, pode indicar um problema maior
+          if [ $ERROR_COUNT -gt 10 ]; then
+            echo "⚠️  High error count detected. Please check message format and queue health."
+            exit 1
+          fi
