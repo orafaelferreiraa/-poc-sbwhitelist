@@ -3,12 +3,13 @@ name: Nightly SB Whitelist Cleanup
 on:
   schedule:
     - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   clean-up:
     runs-on: ubuntu-latest
     env:
-      AZURE_STORAGE_ACCOUNT:poc2sbwhitelist2
+      AZURE_STORAGE_ACCOUNT: poc2sbwhitelist2 
 
     steps:
       - name: Checkout code
