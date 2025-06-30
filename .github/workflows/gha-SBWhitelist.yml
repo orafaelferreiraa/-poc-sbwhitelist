@@ -43,25 +43,24 @@ jobs:
 
       - name: Configure SB for Selected Networks + Allow IP
         run: |
-          # 1) Muda de “All networks” para “Selected networks”
+          # 1) Switch from “All networks” to “Selected networks”
           az servicebus namespace network-rule-set update \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --default-action Deny
 
-          # 2) Agora adiciona o IP específico
+          # 2) Then add the specific IP
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
 
-
       - name: Queue IP + metadata
         run: |
-          # garante que a fila existe (idempotente), usando credênciais do SP
+          # ensure the queue exists (idempotent), using SP credentials
           az storage queue create -n sb-whitelist --auth-mode login
 
-          # monta payload pipe-delimited: subId|rg|namespace|ip
+          # build payload in pipe-delimited format: subscriptionId|rg|namespace|ip
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}"
 
           az storage message put \
