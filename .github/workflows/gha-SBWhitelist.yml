@@ -41,12 +41,20 @@ jobs:
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ github.event.inputs.subscriptionId }}
 
-      - name: Allow IP on Service Bus
+      - name: Configure SB for Selected Networks + Allow IP
         run: |
+          # 1) Muda de “All networks” para “Selected networks”
+          az servicebus namespace network-rule-set update \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --default-action Deny
+
+          # 2) Agora adiciona o IP específico
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
+
 
       - name: Queue IP + metadata
         run: |
