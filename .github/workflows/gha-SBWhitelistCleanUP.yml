@@ -30,7 +30,7 @@ jobs:
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
 
-- name: Process all queued IPs (final fix)
+      - name: Process all queued IPs (final fix)
         run: |
           echo "🔍 Checking queue status..."
           QUEUE_COUNT=$(az storage message peek \
