@@ -61,7 +61,7 @@ jobs:
           az storage queue create -n sb-whitelist --auth-mode login
 
           # build payload in pipe-delimited format: subscriptionId|rg|namespace|ip
-          PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}"
+          PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
 
           az storage message put \
             -q sb-whitelist \
