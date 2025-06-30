@@ -28,7 +28,7 @@ jobs:
   add-ip:
     runs-on: ubuntu-latest
     env:
-      AZURE_STORAGE_ACCOUNT: ${{ secrets.STO_SB_WHITELIST }}
+      AZURE_STORAGE_ACCOUNT: poc2sbwhitelis 
 
     steps:
       - name: Checkout code
