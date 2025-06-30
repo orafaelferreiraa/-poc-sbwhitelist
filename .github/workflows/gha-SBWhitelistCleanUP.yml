@@ -32,8 +32,9 @@ jobs:
 
       - name: Process all queued IPs
         run: |
+          # loop until the queue is empty
           while true; do
-            # 1) Try to get the next messageId; if none, exit
+            # 1) grab the next messageId; if empty, break
             MSG_ID=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
@@ -44,7 +45,7 @@ jobs:
               break
             fi
 
-            # 2) Get the popReceipt and the payload text
+            # 2) fetch its popReceipt and text
             POP=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
@@ -56,7 +57,7 @@ jobs:
               -q '[0].messageText' \
               -o tsv)
 
-            # 3) Split payload "subId|rg|namespace|ip"
+            # 3) split “subId|rg|namespace|ip”
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
             echo "→ Removing $IP from Service Bus $NS (RG: $RG / Sub: $SUB_ID)…"
@@ -66,7 +67,7 @@ jobs:
               --namespace-name "$NS" \
               --ip-rule ip-address=$IP || true
 
-            # 4) Finally delete that exact message
+            # 4) delete only that message
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
