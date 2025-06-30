@@ -30,7 +30,7 @@ jobs:
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
 
-      - name: Process all queued IPs (with debug)
+        - name: Process all queued IPs (with debug)
         run: |
           # Loop until the queue is empty
           while true; do
@@ -68,18 +68,17 @@ jobs:
 
             echo
             echo "----- DEBUG BEFORE REMOVE -----"
-            echo "SUB_ID:      $SUB_ID"
-            echo "ResourceGrp: $RG"
-            echo "Namespace:   $NS"
-            echo "IP:          $IP"
+            echo "MSG_ID=$MSG_ID"
+            echo "POP    =$POP"
+            echo "IP     =$IP"
+            echo "Namespace= $NS, RG= $RG, Sub= $SUB_ID"
             echo "Current ipRules:"
             az servicebus namespace network-rule-set show \
               --resource-group "$RG" \
               --namespace-name "$NS" \
-              --query ipRules \
-              -o table
+              --query ipRules -o table
 
-            # 4) Remove the IP rule (no silent-fail)
+            # 4) Remove the IP rule
             echo "→ Removing $IP …"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
@@ -92,14 +91,14 @@ jobs:
             az servicebus namespace network-rule-set show \
               --resource-group "$RG" \
               --namespace-name "$NS" \
-              --query ipRules \
-              -o table
+              --query ipRules -o table
 
-            # 5) Delete that exact message from the queue
+            # 5) Now delete that exact message
+            echo "→ Deleting message $MSG_ID with popReceipt $POP"
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
               --queue-name sb-whitelist \
-              --message-id "$MSG_ID" \
+              --id "$MSG_ID" \
               --pop-receipt "$POP"
           done
