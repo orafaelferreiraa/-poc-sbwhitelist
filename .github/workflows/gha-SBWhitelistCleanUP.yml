@@ -34,18 +34,18 @@ jobs:
         run: |
           # loop until the queue is empty
           while true; do
-            # 1) grab the next messageId; if empty, break
+            # 1) fetch the next messageId; if none, exit with success
             MSG_ID=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
               -q '[0].messageId' \
-              -o tsv 2>/dev/null)
+              -o tsv)
             if [ -z "$MSG_ID" ]; then
               echo "✅ no more messages, exiting."
-              break
+              exit 0
             fi
 
-            # 2) fetch its popReceipt and text
+            # 2) fetch its popReceipt and messageText
             POP=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
@@ -57,21 +57,22 @@ jobs:
               -q '[0].messageText' \
               -o tsv)
 
-            # 3) split “subId|rg|namespace|ip”
+            # 3) split payload "subscriptionId|rg|namespace|ip"
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
-            echo "→ Removing $IP from Service Bus $NS (RG: $RG / Sub: $SUB_ID)…"
+            echo "→ Removing $IP from Service Bus '$NS' (RG: $RG / Sub: $SUB_ID)…"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
               --resource-group "$RG" \
               --namespace-name "$NS" \
-              --ip-rule ip-address=$IP || true
+              --ip-rule ip-address="$IP" || true
 
-            # 4) delete only that message
+            # 4) delete just that message
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --auth-mode login \
-              -q sb-whitelist \
               --id "$MSG_ID" \
-              --pop-receipt "$POP"
+              --pop-receipt "$POP" \
+              -q sb-whitelist
           done
+
