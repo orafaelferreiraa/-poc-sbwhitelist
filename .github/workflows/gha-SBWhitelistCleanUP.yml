@@ -30,10 +30,9 @@ jobs:
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
 
-      - name: Process all queued IPs
+      - name: Process all queued IPs (fixed)
         run: |
           # 1) peek at up to 5 messages
-          echo ">> Queue peek:"
           az storage message peek \
             --account-name $AZURE_STORAGE_ACCOUNT \
             --queue-name sb-whitelist \
@@ -43,7 +42,6 @@ jobs:
 
           # 2) loop until the queue is empty
           while true; do
-            # pull one message (invisible 30s)
             MSG_JSON=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --queue-name sb-whitelist \
@@ -52,19 +50,15 @@ jobs:
               --auth-mode login \
               -o json --query '[0]')
 
-            # exit if nothing came back
-            if [ "$MSG_JSON" = "null" ]; then
-              echo "✅ no more messages, exiting."
-              break
-            fi
+            [ "$MSG_JSON" = "null" ] && { echo "✅ queue empty, exiting."; break; }
 
-            # extract fields
+            # extract fields correctly
             MSG_ID=$(echo "$MSG_JSON" | jq -r .messageId)
-            POP  =$(echo "$MSG_JSON" | jq -r .popReceipt)
-            PAYLOAD=$(echo "$MSG_JSON" | jq -r .messageText)
+            POP=$(echo "$MSG_JSON"    | jq -r .popReceipt)    # <— no spaces around '='
+            PAYLOAD=$(echo "$MSG_JSON"| jq -r .messageText)
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
-            echo "→ Removing $IP from Service Bus '$NS' (RG=$RG / Sub=$SUB_ID)…"
+            echo "→ Removing $IP from $NS (RG=$RG / Sub=$SUB_ID)…"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
               --resource-group "$RG" \
@@ -72,11 +66,10 @@ jobs:
               --ip-rule ip-address="$IP"
 
             # delete that exact message
-            echo "→ Deleting queue message $MSG_ID"
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
               --queue-name sb-whitelist \
               --id "$MSG_ID" \
               --pop-receipt "$POP" \
-              --auth-mode login
+              --auth-mode login    # <— correct CLI for deleting queue messages :contentReference[oaicite:1]{index=1}
           done
