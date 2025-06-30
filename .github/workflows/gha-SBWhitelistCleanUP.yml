@@ -75,15 +75,34 @@ jobs:
                 continue
               fi
 
-              MSG_ID=$(echo "$msg" | jq -r '.messageId // empty')
+              # Debug: mostrar a estrutura da mensagem
+              echo "🔍 Debug message structure:"
+              echo "$msg" | jq '.'
+
+              MSG_ID=$(echo "$msg" | jq -r '.messageId // .id // empty')
               POP_RECEIPT=$(echo "$msg" | jq -r '.popReceipt // empty')
-              PAYLOAD=$(echo "$msg" | jq -r '.messageText // empty')
+              PAYLOAD=$(echo "$msg" | jq -r '.messageText // .content // empty')
               
               echo "📨 Processing message: $MSG_ID"
+              echo "🔑 Pop receipt: ${POP_RECEIPT:0:20}..."
               
-              # Se qualquer campo crítico estiver vazio/null, pular
-              if [ -z "$MSG_ID" ] || [ -z "$POP_RECEIPT" ] || [ -z "$PAYLOAD" ]; then
-                echo "⚠️  Message data incomplete, skipping"
+              # Se qualquer campo crítico estiver vazio/null, tentar limpar a mensagem órfã
+              if [ -z "$MSG_ID" ] || [ -z "$POP_RECEIPT" ]; then
+                echo "⚠️  Message ID or Pop Receipt missing, this might be a corrupted message"
+                echo "   MSG_ID: '$MSG_ID'"
+                echo "   POP_RECEIPT: '${POP_RECEIPT:0:50}...'"
+                continue
+              fi
+              
+              if [ -z "$PAYLOAD" ]; then
+                echo "⚠️  Empty payload, deleting message"
+                az storage message delete \
+                  --account-name $AZURE_STORAGE_ACCOUNT \
+                  --queue-name sb-whitelist \
+                  --id "$MSG_ID" \
+                  --pop-receipt "$POP_RECEIPT" \
+                  --auth-mode login 2>/dev/null || echo "Failed to delete empty message"
+                ((ERROR_COUNT++))
                 continue
               fi
 
