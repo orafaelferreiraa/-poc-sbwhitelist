@@ -29,76 +29,71 @@ jobs:
           client-id:     ${{ secrets.CLIENTID }}
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
-          
-      - name: Process all queued IPs (with debug)
+
+      - name: Process all queued IPs
+
         run: |
-          # Loop until the queue is empty
+          # 0) install jq for JSON parsing
+          sudo apt-get update && sudo apt-get install -y jq
+
+          # peek at up to 5 messages so you can see what's in the queue
+          echo ">> Queue peek:"
+          az storage message peek \
+            --account-name $AZURE_STORAGE_ACCOUNT \
+            --queue-name sb-whitelist \
+            --num-messages 5 \
+            --auth-mode login \
+            -o table
+
+          # 1) loop until no more messages
           while true; do
-            # 1) Fetch the next messageId; if none, exit loop
-            MSG_ID=$(az storage message get \
+            # fetch one message as JSON
+            MSG_JSON=$(az storage message get \
               --account-name $AZURE_STORAGE_ACCOUNT \
-              --auth-mode login \
               --queue-name sb-whitelist \
               --num-messages 1 \
-              --query '[0].messageId' \
-              -o tsv)
-            if [ -z "$MSG_ID" ]; then
-              echo "✅ No more messages, exiting."
+              --auth-mode login \
+              -o json --query '[0]')
+            
+            # if null, queue is empty
+            if [ "$MSG_JSON" = "null" ]; then
+              echo "✅ no more messages, exiting."
               break
             fi
 
-            # 2) Fetch its popReceipt and messageText
-            POP=$(az storage message get \
-              --account-name $AZURE_STORAGE_ACCOUNT \
-              --auth-mode login \
-              --queue-name sb-whitelist \
-              --num-messages 1 \
-              --query '[0].popReceipt' \
-              -o tsv)
-            PAYLOAD=$(az storage message get \
-              --account-name $AZURE_STORAGE_ACCOUNT \
-              --auth-mode login \
-              --queue-name sb-whitelist \
-              --num-messages 1 \
-              --query '[0].messageText' \
-              -o tsv)
+            # 2) parse fields with jq
+            MSG_ID=$(echo "$MSG_JSON" | jq -r '.messageId')
+            POP=$(echo "$MSG_JSON"   | jq -r '.popReceipt')
+            PAYLOAD=$(echo "$MSG_JSON" | jq -r '.messageText')
 
-            # 3) Split payload "subscriptionId|resourceGroup|namespace|ip"
+            # 3) split payload "subId|rg|namespace|ip"
             IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
 
             echo
             echo "----- DEBUG BEFORE REMOVE -----"
-            echo "MSG_ID=$MSG_ID"
-            echo "POP    =$POP"
-            echo "IP     =$IP"
-            echo "Namespace= $NS, RG= $RG, Sub= $SUB_ID"
-            echo "Current ipRules:"
+            echo "Queue messageId: $MSG_ID"
+            echo "popReceipt:      $POP"
+            echo "Payload -> SUB_ID=$SUB_ID, RG=$RG, NS=$NS, IP=$IP"
+            echo "Current ipRules for $NS:"
             az servicebus namespace network-rule-set show \
               --resource-group "$RG" \
               --namespace-name "$NS" \
               --query ipRules -o table
 
-            # 4) Remove the IP rule
-            echo "→ Removing $IP …"
+            # 4) remove the IP rule
+            echo "→ Removing IP rule $IP from Service Bus '$NS'…"
             az account set -s "$SUB_ID"
             az servicebus namespace network-rule-set ip-rule remove \
               --resource-group "$RG" \
               --namespace-name "$NS" \
               --ip-rule ip-address="$IP"
 
-            echo
-            echo "----- DEBUG AFTER REMOVE -----"
-            az servicebus namespace network-rule-set show \
-              --resource-group "$RG" \
-              --namespace-name "$NS" \
-              --query ipRules -o table
-
-            # 5) Now delete that exact message
-            echo "→ Deleting message $MSG_ID with popReceipt $POP"
+            # 5) delete the queue message
+            echo "→ Deleting queue message $MSG_ID"
             az storage message delete \
               --account-name $AZURE_STORAGE_ACCOUNT \
-              --auth-mode login \
               --queue-name sb-whitelist \
               --id "$MSG_ID" \
-              --pop-receipt "$POP"
+              --pop-receipt "$POP" \
+              --auth-mode login
           done
