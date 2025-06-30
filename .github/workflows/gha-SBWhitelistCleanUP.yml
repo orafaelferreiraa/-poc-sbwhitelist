@@ -1,0 +1,53 @@
+name: Nightly SB Whitelist Cleanup
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  clean-up:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_STORAGE_ACCOUNT:poc2sbwhitelist2
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id:     ${{ secrets.CLIENTID }}
+          tenant-id:     ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ github.event.inputs.subscriptionId }}
+
+      - name: Process all queued IPs
+        run: |
+          while true; do
+            entry=$(az storage message get \
+                      --account-name $AZURE_STORAGE_ACCOUNT \
+                      --auth-mode login \
+                      -q sb-whitelist \
+                      --visibility-timeout 30 \
+                      --num-messages 1 \
+                      --query '[0].[messageId,popReceipt,messageText]' \
+                      -o tsv 2>/dev/null)
+            [ -z "$entry" ] && break
+
+            read MSG_ID POP PAYLOAD <<< "$entry"
+            IFS='|' read SUB_ID RG NS IP <<< "$PAYLOAD"
+
+            echo "→ Removing $IP from SB $NS (RG: $RG / Sub: $SUB_ID)…"
+            az account set -s "$SUB_ID"
+            az servicebus namespace network-rule-set ip-rule remove \
+              --resource-group "$RG" \
+              --namespace-name "$NS" \
+              --ip-rule ip-address=$IP || true
+
+            az storage message delete \
+              --account-name $AZURE_STORAGE_ACCOUNT \
+              --auth-mode login \
+              -q sb-whitelist \
+              --id "$MSG_ID" \
+              --pop-receipt "$POP"
+          done
