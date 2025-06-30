@@ -117,9 +117,19 @@ jobs:
               fi
 
               # Parse payload format: subscriptionId|rg|namespace|ip
-              CLEAN_PAYLOAD=$(echo "$PAYLOAD" | sed 's/^\*\*\*|//')
-              if [ "$CLEAN_PAYLOAD" != "$PAYLOAD" ]; then
-                PAYLOAD="${{ secrets.subscriptionId }}|$CLEAN_PAYLOAD"
+              # If payload is masked, we cannot recover the original subscription ID
+              if [[ "$PAYLOAD" == \*\*\** ]]; then
+                echo "❌ Cannot process masked payload - subscription ID is unrecoverable"
+                
+                az storage message delete \
+                  --account-name $AZURE_STORAGE_ACCOUNT \
+                  --queue-name sb-whitelist \
+                  --id "$MSG_ID" \
+                  --pop-receipt "$POP_RECEIPT" \
+                  --auth-mode login 2>/dev/null || echo "Failed to delete masked message"
+                
+                ((ERROR_COUNT++))
+                continue
               fi
               
               IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
@@ -196,66 +206,3 @@ jobs:
           
           set -e  # Re-enable exit on error
           echo "🎯 Pipeline completed successfully"
-              run: |
-                echo "🔍 Checking queue for pending messages..."
-                QUEUE_COUNT=$(az storage message peek \
-                  --account-name $AZURE_STORAGE_ACCOUNT \
-                  --queue-name sb-whitelist \
-                  --num-messages 1 \
-                  --auth-mode login \
-                  --query 'length(@)' -o tsv)
-                if [ "$QUEUE_COUNT" -eq 0 ]; then
-                  echo "✅ No messages to process. Exiting."
-                  exit 0
-                fi
-
-                PROCESSED=0
-                ERRORS=0
-
-                while true; do
-                  MSG_JSON=$(az storage message get \
-                    --account-name $AZURE_STORAGE_ACCOUNT \
-                    --queue-name sb-whitelist \
-                    --num-messages 1 \
-                    --visibility-timeout 60 \
-                    --auth-mode login \
-                    -o json --query '[0]')
-                  if [ "$MSG_JSON" = "null" ]; then
-                    break
-                  fi
-
-                  MSG_ID=$(echo "$MSG_JSON" | jq -r .messageId)
-                  POP_RECEIPT=$(echo "$MSG_JSON" | jq -r .popReceipt)
-                  PAYLOAD=$(echo "$MSG_JSON" | jq -r .messageText)
-                  IFS='|' read -r SUB_ID RG NS IP <<< "$PAYLOAD"
-
-                  echo "🎯 Removing IP $IP from Service Bus '$NS' (RG=$RG / Sub=$SUB_ID)..."
-                  if az account set -s "$SUB_ID" \
-                    && az servicebus namespace network-rule-set ip-rule remove \
-                        --resource-group "$RG" \
-                        --namespace-name "$NS" \
-                        --ip-rule ip-address="$IP"; then
-                    echo "✅ IP $IP successfully removed"
-                    ((PROCESSED++))
-                  else
-                    echo "⚠️  Failed to remove IP $IP"
-                    ((ERRORS++))
-                  fi
-
-                  echo "🗑️  Deleting queue message $MSG_ID..."
-                  if az storage message delete \
-                      --account-name $AZURE_STORAGE_ACCOUNT \
-                      --queue-name sb-whitelist \
-                      --id "$MSG_ID" \
-                      --pop-receipt "$POP_RECEIPT" \
-                      --auth-mode login; then
-                    echo "✅ Message $MSG_ID deleted"
-                  else
-                    echo "⚠️  Failed to delete message $MSG_ID"
-                    ((ERRORS++))
-                  fi
-                done
-
-                echo ""
-                echo "📊 Summary: processed=$PROCESSED, errors=$ERRORS"
-                echo "🎉 Cleanup completed successfully"
