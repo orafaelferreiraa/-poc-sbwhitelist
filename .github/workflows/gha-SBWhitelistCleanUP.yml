@@ -29,8 +29,8 @@ jobs:
           client-id:     ${{ secrets.CLIENTID }}
           tenant-id:     ${{ secrets.TENANT_ID }}
           subscription-id: ${{ secrets.subscriptionId }}
-
-        - name: Process all queued IPs (with debug)
+          
+      - name: Process all queued IPs (with debug)
         run: |
           # Loop until the queue is empty
           while true; do
