@@ -23,7 +23,7 @@ permissions:
 
 env:
   PROTECTED_SUBS: |
-    [67679a5f-45e1-4949-87ac-25df76d12478]
+    ["67679a5f-45e1-4949-87ac-25df76d12478"]
 
 jobs:
   add-ip-protected:
