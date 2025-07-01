@@ -184,24 +184,4 @@ jobs:
             sleep 2
           done
 
-          echo ""
-          echo "📊 Processing Summary:"
-          echo "   ✅ Successfully processed: $PROCESSED_COUNT"
-          echo "   ❌ Errors/Invalid messages: $ERROR_COUNT"
-          
-          # Check remaining messages in queue
-          REMAINING=$(az storage message peek \
-            --account-name $AZURE_STORAGE_ACCOUNT \
-            --queue-name sb-whitelist \
-            --num-messages 1 \
-            --auth-mode login \
-            --query 'length(@)' -o tsv 2>/dev/null || echo "0")
-          
-          echo "   📋 Messages remaining in queue: $REMAINING"
-          
-          if [ "$REMAINING" -gt 0 ]; then
-            echo "⚠️ Some messages may still be in queue. Check for processing conflicts or invalid messages."
-          fi
-          
-          set -e  # Re-enable exit on error
           echo "🎯 Pipeline completed successfully"
