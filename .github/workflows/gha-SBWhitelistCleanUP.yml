@@ -1,8 +1,6 @@
 name: Nightly SB Whitelist Cleanup
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
