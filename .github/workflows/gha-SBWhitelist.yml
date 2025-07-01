@@ -17,53 +17,86 @@ on:
         required: true
 
 permissions:
-  actions: read
-  checks: write
   contents: read
   id-token: write
-  pull-requests: read
-  statuses: read
+
+
+env:
+  PROTECTED_SUBS: |
+    [67679a5f-45e1-4949-87ac-25df76d12478]
 
 jobs:
-  add-ip:
+  add-ip-protected:
+    if: contains(fromJSON(env.PROTECTED_SUBS), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
-    env:
-      AZURE_STORAGE_ACCOUNT: poc2sbwhitelist2 
-
+    environment: env-protected
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Login to Azure
+      - name: Azure Login
         uses: azure/login@v2
         with:
-          client-id:     ${{ secrets.CLIENTID }}
-          tenant-id:     ${{ secrets.TENANT_ID }}
+          client-id:       ${{ secrets.CLIENTID }}
+          tenant-id:       ${{ secrets.TENANT_ID }}
           subscription-id: ${{ github.event.inputs.subscriptionId }}
 
-      - name: Configure SB for Selected Networks + Allow IP
+      - name: Configure SB + Allow IP
         run: |
-          # 1) Switch from “All networks” to “Selected networks”
           az servicebus namespace network-rule-set update \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --default-action Deny
 
-          # 2) Then add the specific IP
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
 
-      - name: Queue IP + metadata
+      - name: Enqueue IP metadata
         run: |
-          # ensure the queue exists (idempotent), using SP credentials
-          az storage queue create -n sb-whitelist --auth-mode login
-
-          # build payload in pipe-delimited format: subscriptionId|rg|namespace|ip
+          az storage queue create \
+            --account-name poc2sbwhitelist2 \
+            --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
-
           az storage message put \
-            -q sb-whitelist \
+            --account-name poc2sbwhitelist2 \
+            --queue-name sb-whitelist \
+            --content "$PAYLOAD" \
+            --auth-mode login
+
+  add-ip-unprotected:
+    if: ! contains(fromJSON(env.PROTECTED_SUBS), github.event.inputs.subscriptionId)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.CLIENTID }}
+          tenant-id:       ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ github.event.inputs.subscriptionId }}
+
+      - name: Configure SB + Allow IP
+        run: |
+          az servicebus namespace network-rule-set update \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --default-action Deny
+
+          az servicebus namespace network-rule-set ip-rule add \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
+
+      - name: Enqueue IP metadata
+        run: |
+          az storage queue create \
+            --account-name poc2sbwhitelist2 \
+            --auth-mode login
+          PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
+          az storage message put \
+            --account-name poc2sbwhitelist2 \
+            --queue-name sb-whitelist \
             --content "$PAYLOAD" \
             --auth-mode login
