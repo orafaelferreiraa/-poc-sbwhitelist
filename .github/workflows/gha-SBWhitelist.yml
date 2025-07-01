@@ -20,52 +20,25 @@ permissions:
   contents: read
   id-token: write
 
-
-env:
-  PROTECTED_SUBS: |
-    ["67679a5f-45e1-4949-87ac-25df76d12478"]
+vars:
+  PROTECTED_SUBS: '["67679a5f-45e1-4949-87ac-25df76d12478"]'
 
 jobs:
   add-ip-protected:
-    if: contains(fromJSON(env.PROTECTED_SUBS), github.event.inputs.subscriptionId)
+    if: contains(fromJson(vars.PROTECTED_SUBS), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
     environment: env-protected
     steps:
       - uses: actions/checkout@v4
-
       - name: Azure Login
         uses: azure/login@v2
-        with:
-          client-id:       ${{ secrets.CLIENTID }}
-          tenant-id:       ${{ secrets.TENANT_ID }}
-          subscription-id: ${{ github.event.inputs.subscriptionId }}
-
+        # …
       - name: Configure SB + Allow IP
         run: |
-          az servicebus namespace network-rule-set update \
-            --resource-group ${{ github.event.inputs.resourceGroup }} \
-            --namespace-name ${{ github.event.inputs.serviceBusName }} \
-            --default-action Deny
-
-          az servicebus namespace network-rule-set ip-rule add \
-            --resource-group ${{ github.event.inputs.resourceGroup }} \
-            --namespace-name ${{ github.event.inputs.serviceBusName }} \
-            --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
-
-      - name: Enqueue IP metadata
-        run: |
-          az storage queue create \
-            --account-name poc2sbwhitelist2 \
-            --auth-mode login
-          PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
-          az storage message put \
-            --account-name poc2sbwhitelist2 \
-            --queue-name sb-whitelist \
-            --content "$PAYLOAD" \
-            --auth-mode login
+          # seu script aqui
 
   add-ip-unprotected:
-    if: ! contains(fromJSON(env.PROTECTED_SUBS), github.event.inputs.subscriptionId)
+    if: ! contains(fromJson(vars.PROTECTED_SUBS), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
