@@ -28,7 +28,7 @@ jobs:
           github.event.inputs.subscriptionId
         )
     runs-on: ubuntu-latest
-    environment: env-protected    # padronize aqui o nome do seu Environment
+    environment: env-protected
 
     steps:
       - uses: actions/checkout@v4
@@ -38,17 +38,19 @@ jobs:
           client-id:       ${{ secrets.CLIENTID }}
           tenant-id:       ${{ secrets.TENANT_ID }}
           subscription-id: ${{ github.event.inputs.subscriptionId }}
-      - name: Configure SB + Allow IP
+      - name: Configure SB for Selected Networks + Allow IP
         run: |
-          az servicebus namespace network-rule-set update \
-            --resource-group ${{ github.event.inputs.resourceGroup }} \
-            --namespace-name ${{ github.event.inputs.serviceBusName }} \
-            --default-action Deny
+          # 1) Add the specific IP first (so já exista ao menos uma regra)
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
-      - name: Enqueue IP metadata
+
+          # 2) Agora sim mude para Selected networks (DefaultAction=Deny)
+          az servicebus namespace network-rule-set update \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --default-action Deny
         run: |
           az storage queue create --account-name poc2sbwhitelist2 --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
@@ -74,17 +76,19 @@ jobs:
           client-id:       ${{ secrets.CLIENTID }}
           tenant-id:       ${{ secrets.TENANT_ID }}
           subscription-id: ${{ github.event.inputs.subscriptionId }}
-      - name: Configure SB + Allow IP
+      - name: Configure SB for Selected Networks + Allow IP
         run: |
-          az servicebus namespace network-rule-set update \
-            --resource-group ${{ github.event.inputs.resourceGroup }} \
-            --namespace-name ${{ github.event.inputs.serviceBusName }} \
-            --default-action Deny
+          # 1) Add the specific IP first (so já exista ao menos uma regra)
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
-      - name: Enqueue IP metadata
+
+          # 2) Agora sim mude para Selected networks (DefaultAction=Deny)
+          az servicebus namespace network-rule-set update \
+            --resource-group ${{ github.event.inputs.resourceGroup }} \
+            --namespace-name ${{ github.event.inputs.serviceBusName }} \
+            --default-action Deny
         run: |
           az storage queue create --account-name poc2sbwhitelist2 --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
