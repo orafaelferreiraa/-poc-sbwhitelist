@@ -40,17 +40,19 @@ jobs:
           subscription-id: ${{ github.event.inputs.subscriptionId }}
       - name: Configure SB for Selected Networks + Allow IP
         run: |
-          # 1) Add the specific IP first (so já exista ao menos uma regra)
+          # 1) Add the specific IP first (so there’s at least one rule)
           az servicebus namespace network-rule-set ip-rule add \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --ip-rule ip-address=${{ github.event.inputs.ip }}/32 action=Allow
 
-          # 2) Agora sim mude para Selected networks (DefaultAction=Deny)
+          # 2) Now switch to Selected Networks (DefaultAction=Deny)
           az servicebus namespace network-rule-set update \
             --resource-group ${{ github.event.inputs.resourceGroup }} \
             --namespace-name ${{ github.event.inputs.serviceBusName }} \
             --default-action Deny
+
+      - name: Queue IP + metadata
         run: |
           az storage queue create --account-name poc2sbwhitelist2 --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
@@ -59,6 +61,8 @@ jobs:
             --queue-name sb-whitelist \
             --content "$PAYLOAD" \
             --auth-mode login
+
+
 
   # --- JOB “LIVRE” (outras 70 subs) ---
   add-ip-unprotected:
