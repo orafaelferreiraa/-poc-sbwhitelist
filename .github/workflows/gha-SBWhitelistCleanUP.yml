@@ -13,9 +13,11 @@ permissions:
 
 jobs:
   clean-up:
+    environment: env-general
     runs-on: ubuntu-latest
     env:
       AZURE_STORAGE_ACCOUNT: poc2sbwhitelist2 
+          environment: env-general
 
     steps:
       - name: Checkout code
