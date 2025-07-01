@@ -49,7 +49,10 @@ jobs:
 
       - name: Queue IP + metadata
         run: |
-          az storage queue create --account-name poc2sbwhitelist2 --auth-mode login
+          az storage queue create \
+            --account-name poc2sbwhitelist2 \
+            --name sb-whitelist \
+            --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
           az storage message put \
             --account-name poc2sbwhitelist2 \
@@ -84,7 +87,10 @@ jobs:
 
       - name: Queue IP + metadata
         run: |
-          az storage queue create --account-name poc2sbwhitelist2 --auth-mode login
+          az storage queue create \
+            --account-name poc2sbwhitelist2 \
+            --name sb-whitelist \
+            --auth-mode login
           PAYLOAD="${{ github.event.inputs.subscriptionId }}|${{ github.event.inputs.resourceGroup }}|${{ github.event.inputs.serviceBusName }}|${{ github.event.inputs.ip }}/32"
           az storage message put \
             --account-name poc2sbwhitelist2 \
