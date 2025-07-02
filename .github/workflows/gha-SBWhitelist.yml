@@ -20,12 +20,13 @@ permissions:
   contents: read
   id-token: write
 
-env:
-  PROTECTED_SUBS: '["67679a5f-45e1-4949-87ac-25df76d12478","sub-B","sub-C"]'
+x-protected-subs: &protected-subs |
+  ["67679a5f-45e1-4949-87ac-25df76d12478","sub-2222","sub-3333","sub-4444","sub-5555",
+   "sub-6666","sub-7777","sub-8888","sub-9999","sub-0000"]
 
 jobs:
   add-ip-protected:
-    if: contains(fromJson(env.PROTECTED_SUBS), github.event.inputs.subscriptionId)
+    if: contains(fromJson(*protected-subs), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
     environment: env-protected
     steps:
@@ -39,7 +40,7 @@ jobs:
           storageAccount: poc2sbwhitelist2
 
   add-ip-unprotected:
-    if: contains(fromJson(env.PROTECTED_SUBS), github.event.inputs.subscriptionId) == false
+    if: contains(fromJson(*protected-subs), github.event.inputs.subscriptionId) == false
     runs-on: ubuntu-latest
     environment: env-general
     steps:
