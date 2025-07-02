@@ -34,7 +34,7 @@ jobs:
         with:
           clientId:        ${{ secrets.CLIENTID }}
           tenantId:        ${{ secrets.TENANT_ID }}
-          subscriptionId:  ${{ secrets.event.inputs.subscriptionId }}
+          subscriptionId:  ${{ github.event.inputs.subscriptionId }}
           ip:              ${{ github.event.inputs.ip }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
           serviceBusName:  ${{ github.event.inputs.serviceBusName }}
@@ -53,7 +53,7 @@ jobs:
         with:
           clientId:        ${{ secrets.CLIENTID }}
           tenantId:        ${{ secrets.TENANT_ID }}
-          subscriptionId:  ${{ secrets.event.inputs.subscriptionId }}
+          subscriptionId:  ${{ github.event.inputs.subscriptionId }}
           ip:              ${{ github.event.inputs.ip }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
           serviceBusName:  ${{ github.event.inputs.serviceBusName }}
