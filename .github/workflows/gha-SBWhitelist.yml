@@ -27,7 +27,7 @@ jobs:
     environment: env-protected
     steps:
       - name: Add IP & Enqueue (protected)
-        uses: ./.github/actions/add-ip
+        uses: ./.github/actions/SBWhitelist
         with:
           ip:              ${{ github.event.inputs.ip }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
@@ -41,7 +41,7 @@ jobs:
     environment: env-general
     steps:
       - name: Add IP & Enqueue (unprotected)
-        uses: ./.github/actions/add-ip
+        uses: ./.github/actions/SBWhitelist
         with:
           ip:              ${{ github.event.inputs.ip }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
