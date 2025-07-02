@@ -27,10 +27,13 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Azure Login
+    - name: Login to Azure
       uses: azure/login@v2
       with:
         creds: ${{ inputs.azureCredentials }}
+        client-id:     ${{ secrets.CLIENTID }}
+        tenant-id:     ${{ secrets.TENANT_ID }}
+        subscription-id: ${{ secrets.subscriptionId }}
 
     - name: Configure SB for Selected Networks + Allow IP
       run: |
