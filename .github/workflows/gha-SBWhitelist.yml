@@ -22,19 +22,29 @@ permissions:
 
 jobs:
   add-ip-protected:
-    if: contains(
-          fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-2222","sub-3333","sub-4444","sub-5555","sub-6666","sub-7777","sub-8888","sub-9999","sub-0000"]'),
-          github.event.inputs.subscriptionId
-        )
+    if: contains(fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-B","sub-C"]'), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
     environment: env-protected
-    steps: *common-steps
+    steps:
+      - name: Add IP & Enqueue (protected)
+        uses: ./.github/actions/add-ip
+        with:
+          ip:              ${{ github.event.inputs.ip }}
+          subscriptionId:  ${{ github.event.inputs.subscriptionId }}
+          resourceGroup:   ${{ github.event.inputs.resourceGroup }}
+          serviceBusName:  ${{ github.event.inputs.serviceBusName }}
+          storageAccount:  poc2sbwhitelist2
 
   add-ip-unprotected:
-    if: contains(
-          fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-2222","sub-3333","sub-4444","sub-5555","sub-6666","sub-7777","sub-8888","sub-9999","sub-0000"]'),
-          github.event.inputs.subscriptionId
-        ) == false
+    if: contains(fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-B","sub-C"]'), github.event.inputs.subscriptionId) == false
     runs-on: ubuntu-latest
     environment: env-general
-    steps: *common-steps
+    steps:
+      - name: Add IP & Enqueue (unprotected)
+        uses: ./.github/actions/add-ip
+        with:
+          ip:              ${{ github.event.inputs.ip }}
+          subscriptionId:  ${{ github.event.inputs.subscriptionId }}
+          resourceGroup:   ${{ github.event.inputs.resourceGroup }}
+          serviceBusName:  ${{ github.event.inputs.serviceBusName }}
+          storageAccount:  poc2sbwhitelist2
