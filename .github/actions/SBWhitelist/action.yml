@@ -27,36 +27,34 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Login to Azure
+    - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ inputs.azureCredentials }}
-        client-id:     ${{ secrets.CLIENTID }}
-        tenant-id:     ${{ secrets.TENANT_ID }}
-        subscription-id: ${{ secrets.subscriptionId }}
 
     - name: Configure SB for Selected Networks + Allow IP
-      run: |
-        az servicebus namespace network-rule-set ip-rule add \
-          --resource-group ${{ inputs.resourceGroup }} \
-          --namespace-name ${{ inputs.serviceBusName }} \
-          --ip-rule ip-address=${{ inputs.ip }}/32 action=Allow
-        az servicebus namespace network-rule-set update \
-          --resource-group ${{ inputs.resourceGroup }} \
-          --namespace-name ${{ inputs.serviceBusName }} \
-          --default-action Deny
       shell: bash
+      run: |
+        az account set -s "${{ inputs.subscriptionId }}"
+        az servicebus namespace network-rule-set ip-rule add \
+          --resource-group "${{ inputs.resourceGroup }}" \
+          --namespace-name "${{ inputs.serviceBusName }}" \
+          --ip-rule ip-address="${{ inputs.ip }}/32" action=Allow
+        az servicebus namespace network-rule-set update \
+          --resource-group "${{ inputs.resourceGroup }}" \
+          --namespace-name "${{ inputs.serviceBusName }}" \
+          --default-action Deny
 
     - name: Queue IP + metadata
+      shell: bash
       run: |
         az storage queue create \
-          --account-name ${{ inputs.storageAccount }} \
+          --account-name "${{ inputs.storageAccount }}" \
           --name sb-whitelist \
           --auth-mode login
         PAYLOAD="${{ inputs.subscriptionId }}|${{ inputs.resourceGroup }}|${{ inputs.serviceBusName }}|${{ inputs.ip }}/32"
         az storage message put \
-          --account-name ${{ inputs.storageAccount }} \
+          --account-name "${{ inputs.storageAccount }}" \
           --queue-name sb-whitelist \
           --content "$PAYLOAD" \
           --auth-mode login
-      shell: bash
