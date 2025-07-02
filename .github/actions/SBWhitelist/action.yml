@@ -42,6 +42,7 @@ runs:
           --resource-group ${{ inputs.resourceGroup }} \
           --namespace-name ${{ inputs.serviceBusName }} \
           --default-action Deny
+      shell: bash
 
     - name: Queue IP + metadata
       run: |
@@ -55,3 +56,4 @@ runs:
           --queue-name sb-whitelist \
           --content "$PAYLOAD" \
           --auth-mode login
+      shell: bash
