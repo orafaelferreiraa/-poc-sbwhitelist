@@ -2,14 +2,20 @@ name: 'Add IP to SB Whitelist'
 description: 'Configures Service Bus firewall and enqueues IP metadata'
 
 inputs:
-  azureCredentials:
-    description: 'Azure login credentials JSON (service principal)'
+  clientId:
+    description: 'Azure Service Principal client ID'
     required: true
-  ip:
-    description: 'IP to whitelist'
+  clientSecret:
+    description: 'Azure Service Principal client secret'
+    required: true
+  tenantId:
+    description: 'Azure tenant ID'
     required: true
   subscriptionId:
     description: 'Azure Subscription ID'
+    required: true
+  ip:
+    description: 'IP to whitelist'
     required: true
   resourceGroup:
     description: 'Resource Group name'
@@ -27,15 +33,16 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Azure Login
+    - name: Login to Azure
       uses: azure/login@v2
       with:
-        creds: ${{ inputs.azureCredentials }}
+          client-id:     ${{ secrets.CLIENTID }}
+          tenant-id:     ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ secrets.subscriptionId }}
 
     - name: Configure SB for Selected Networks + Allow IP
       shell: bash
       run: |
-        az account set -s "${{ inputs.subscriptionId }}"
         az servicebus namespace network-rule-set ip-rule add \
           --resource-group "${{ inputs.resourceGroup }}" \
           --namespace-name "${{ inputs.serviceBusName }}" \

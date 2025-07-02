@@ -27,15 +27,16 @@ jobs:
     environment: env-protected
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Add IP & Enqueue (protected)
         uses: ./.github/actions/SBWhitelist
         with:
-          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
-          ip:              ${{ github.event.inputs.ip }}
+          clientId:        ${{ secrets.CLIENTID }}
+          clientSecret:    ${{ secrets.CLIENT_SECRET }}
+          tenantId:        ${{ secrets.TENANT_ID }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
+          ip:              ${{ github.event.inputs.ip }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
           serviceBusName:  ${{ github.event.inputs.serviceBusName }}
           storageAccount:  poc2sbwhitelist2
@@ -46,15 +47,16 @@ jobs:
     environment: env-general
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+        
       - name: Add IP & Enqueue (unprotected)
         uses: ./.github/actions/SBWhitelist
         with:
-          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
-          ip:              ${{ github.event.inputs.ip }}
+          clientId:        ${{ secrets.CLIENTID }}
+          clientSecret:    ${{ secrets.CLIENT_SECRET }}
+          tenantId:        ${{ secrets.TENANT_ID }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
+          ip:              ${{ github.event.inputs.ip }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
           serviceBusName:  ${{ github.event.inputs.serviceBusName }}
           storageAccount:  poc2sbwhitelist2
