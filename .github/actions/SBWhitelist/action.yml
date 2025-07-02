@@ -2,6 +2,9 @@ name: 'Add IP to SB Whitelist'
 description: 'Configures Service Bus firewall and enqueues IP metadata'
 
 inputs:
+  azureCredentials:
+    description: 'Azure login credentials JSON (service principal)'
+    required: true
   ip:
     description: 'IP to whitelist'
     required: true
@@ -27,11 +30,11 @@ runs:
     - name: Azure Login
       uses: azure/login@v2
       with:
-        client-id:       ${{ secrets.CLIENTID }}
-        tenant-id:       ${{ secrets.TENANT_ID }}
-        subscription-id: ${{ inputs.subscriptionId }}
+        creds: ${{ inputs.azureCredentials }}
+      shell: bash
 
     - name: Configure SB for Selected Networks + Allow IP
+      shell: bash
       run: |
         az servicebus namespace network-rule-set ip-rule add \
           --resource-group ${{ inputs.resourceGroup }} \
@@ -43,6 +46,7 @@ runs:
           --default-action Deny
 
     - name: Queue IP + metadata
+      shell: bash
       run: |
         az storage queue create \
           --account-name ${{ inputs.storageAccount }} \
@@ -54,3 +58,4 @@ runs:
           --queue-name sb-whitelist \
           --content "$PAYLOAD" \
           --auth-mode login
+

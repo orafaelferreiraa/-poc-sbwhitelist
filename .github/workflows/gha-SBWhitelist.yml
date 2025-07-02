@@ -25,6 +25,7 @@ jobs:
     if: contains(fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-B","sub-C"]'), github.event.inputs.subscriptionId)
     runs-on: ubuntu-latest
     environment: env-protected
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,6 +33,7 @@ jobs:
       - name: Add IP & Enqueue (protected)
         uses: ./.github/actions/SBWhitelist
         with:
+          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
           ip:              ${{ github.event.inputs.ip }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
@@ -42,6 +44,7 @@ jobs:
     if: contains(fromJson('["67679a5f-45e1-4949-87ac-25df76d12478","sub-B","sub-C"]'), github.event.inputs.subscriptionId) == false
     runs-on: ubuntu-latest
     environment: env-general
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,6 +52,7 @@ jobs:
       - name: Add IP & Enqueue (unprotected)
         uses: ./.github/actions/SBWhitelist
         with:
+          azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
           ip:              ${{ github.event.inputs.ip }}
           subscriptionId:  ${{ github.event.inputs.subscriptionId }}
           resourceGroup:   ${{ github.event.inputs.resourceGroup }}
