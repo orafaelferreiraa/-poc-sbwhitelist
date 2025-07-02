@@ -26,6 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: env-protected
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Add IP & Enqueue (protected)
         uses: ./.github/actions/SBWhitelist
         with:
@@ -40,6 +43,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: env-general
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
       - name: Add IP & Enqueue (unprotected)
         uses: ./.github/actions/SBWhitelist
         with:
