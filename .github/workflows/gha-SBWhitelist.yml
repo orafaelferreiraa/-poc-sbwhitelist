@@ -29,6 +29,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id:     ${{ secrets.CLIENTID }}
+          tenant-id:     ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ secrets.subscriptionId }}
 
       - name: Add IP & Enqueue (protected)
         uses: ./.github/actions/SBWhitelist
@@ -48,6 +55,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id:     ${{ secrets.CLIENTID }}
+          tenant-id:     ${{ secrets.TENANT_ID }}
+          subscription-id: ${{ secrets.subscriptionId }}
         
       - name: Add IP & Enqueue (unprotected)
         uses: ./.github/actions/SBWhitelist
