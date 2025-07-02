@@ -1,0 +1,56 @@
+name: 'Add IP to SB Whitelist'
+description: 'Configures Service Bus firewall and enqueues IP metadata'
+
+inputs:
+  ip:
+    description: 'IP to whitelist'
+    required: true
+  subscriptionId:
+    description: 'Azure Subscription ID'
+    required: true
+  resourceGroup:
+    description: 'Resource Group name'
+    required: true
+  serviceBusName:
+    description: 'Service Bus namespace'
+    required: true
+  storageAccount:
+    description: 'Azure Storage account name'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id:       ${{ secrets.CLIENTID }}
+        tenant-id:       ${{ secrets.TENANT_ID }}
+        subscription-id: ${{ inputs.subscriptionId }}
+
+    - name: Configure SB for Selected Networks + Allow IP
+      run: |
+        az servicebus namespace network-rule-set ip-rule add \
+          --resource-group ${{ inputs.resourceGroup }} \
+          --namespace-name ${{ inputs.serviceBusName }} \
+          --ip-rule ip-address=${{ inputs.ip }}/32 action=Allow
+        az servicebus namespace network-rule-set update \
+          --resource-group ${{ inputs.resourceGroup }} \
+          --namespace-name ${{ inputs.serviceBusName }} \
+          --default-action Deny
+
+    - name: Queue IP + metadata
+      run: |
+        az storage queue create \
+          --account-name ${{ inputs.storageAccount }} \
+          --name sb-whitelist \
+          --auth-mode login
+        PAYLOAD="${{ inputs.subscriptionId }}|${{ inputs.resourceGroup }}|${{ inputs.serviceBusName }}|${{ inputs.ip }}/32"
+        az storage message put \
+          --account-name ${{ inputs.storageAccount }} \
+          --queue-name sb-whitelist \
+          --content "$PAYLOAD" \
+          --auth-mode login
